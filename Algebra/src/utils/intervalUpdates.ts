@@ -12,10 +12,12 @@ import {
   PoolHourData,
   TickDayData,
   FeeHourData,
-  Tick
+  Tick,
+  UserFeeHourData,
+  PoolFeeAccruedHourData
 } from './../types/schema'
 import { FACTORY_ADDRESS } from './constants'
-import { ethereum, BigInt } from '@graphprotocol/graph-ts'
+import { ethereum, BigInt, BigDecimal, Bytes } from '@graphprotocol/graph-ts'
 
 
 /**
@@ -292,4 +294,68 @@ export function updateTickDayData(tick: Tick, event: ethereum.Event): TickDayDat
   tickDayData.save()
 
   return tickDayData as TickDayData
+}
+
+export function updateUserFeeHourData(
+  user: Bytes,
+  pool: Pool,
+  liquidityShare: BigDecimal,
+  feesUSD: BigDecimal,
+  feesToken0: BigDecimal,
+  feesToken1: BigDecimal,
+  event: ethereum.Event
+): void {
+  let hour = event.block.timestamp.toI32() / 3600
+  let hourStartUnix = hour * 3600
+  let userFeeHourDataID = user.toHexString()
+    .concat('-')
+    .concat(pool.id)
+    .concat('-')
+    .concat(hourStartUnix.toString())
+  
+  let userFeeHourData = UserFeeHourData.load(userFeeHourDataID)
+  if(userFeeHourData === null) {
+    userFeeHourData = new UserFeeHourData(userFeeHourDataID)
+    userFeeHourData.user = user
+    userFeeHourData.hourStartUnix = hourStartUnix
+    userFeeHourData.pool = pool.id
+    userFeeHourData.feesUSD = ZERO_BD
+    userFeeHourData.feesToken0 = ZERO_BD
+    userFeeHourData.feesToken1 = ZERO_BD
+    userFeeHourData.liquidityShare = liquidityShare
+    userFeeHourData.save()
+  }
+  userFeeHourData.liquidityShare = liquidityShare
+  userFeeHourData.feesUSD = userFeeHourData.feesUSD.plus(feesUSD)
+  userFeeHourData.feesToken0 = userFeeHourData.feesToken0.plus(feesToken0)
+  userFeeHourData.feesToken1 = userFeeHourData.feesToken1.plus(feesToken1)
+  userFeeHourData.save()
+}
+
+export function updatePoolFeeAccruedHourData(
+  pool: Pool, 
+  feesToken0: BigDecimal, 
+  feesToken1: BigDecimal, 
+  feesUSD: BigDecimal, 
+  event: ethereum.Event): void {
+  let timestamp = event.block.timestamp.toI32()
+  let hourIndex = timestamp / 3600
+  let hourStartUnix = hourIndex * 3600
+  let poolFeeAccruedHourDataID = pool.id
+    .toString()
+    .concat('-')
+    .concat(hourStartUnix.toString())
+  let poolFeeAccruedHourData = PoolFeeAccruedHourData.load(poolFeeAccruedHourDataID)
+  if(poolFeeAccruedHourData === null) {
+    poolFeeAccruedHourData = new PoolFeeAccruedHourData(poolFeeAccruedHourDataID)
+    poolFeeAccruedHourData.pool = pool.id
+    poolFeeAccruedHourData.hourStartUnix = hourStartUnix
+    poolFeeAccruedHourData.feesToken0 = ZERO_BD
+    poolFeeAccruedHourData.feesToken1 = ZERO_BD
+    poolFeeAccruedHourData.feesUSD = ZERO_BD
+  }
+  poolFeeAccruedHourData.feesToken0 = poolFeeAccruedHourData.feesToken0.plus(feesToken0)
+  poolFeeAccruedHourData.feesToken1 = poolFeeAccruedHourData.feesToken1.plus(feesToken1)
+  poolFeeAccruedHourData.feesUSD = poolFeeAccruedHourData.feesUSD.plus(feesUSD)
+  poolFeeAccruedHourData.save()
 }

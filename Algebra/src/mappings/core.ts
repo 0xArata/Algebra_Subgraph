@@ -15,6 +15,7 @@ import {
   Plugin as PluginEvent
 } from '../types/templates/Pool/Pool'
 import { convertTokenToDecimal, loadTransaction, safeDiv } from '../utils'
+import { distributeFeesToLPs } from '../utils/fees'
 import { FACTORY_ADDRESS, ONE_BI, ZERO_BD, ZERO_BI, pools_list, FEE_DENOMINATOR, PGLQ_ADDRESS} from '../utils/constants'
 import { findEthPerToken, getEthPriceInUSD, getTrackedAmountUSD, priceToTokenPrices, getWnativeUSDPoolAddress } from '../utils/pricing'
 import {
@@ -171,6 +172,8 @@ export function handleMint(event: MintEvent): void {
   }
 
   // TODO: Update Tick's volume, fees, and liquidity provider count
+
+  
 
   updateAlgebraDayData(event)
   updatePoolDayData(event)
@@ -404,6 +407,16 @@ export function handleSwap(event: SwapEvent): void {
   let feesUSD = amountTotalUSDTracked.times(swapFee.toBigDecimal()).div(FEE_DENOMINATOR)
   let untrackedFees = amountTotalUSDUntracked.times(swapFee.toBigDecimal()).div(FEE_DENOMINATOR)
 
+  // Calculate fees in token amounts
+  let feesToken0 = ZERO_BD
+  let feesToken1 = ZERO_BD
+  if(amount0.lt(ZERO_BD)){
+    feesToken1 = amount1Abs.times(swapFee.toBigDecimal()).div(FEE_DENOMINATOR)
+  }
+  if(amount1.lt(ZERO_BD)){
+    feesToken0 = amount0Abs.times(swapFee.toBigDecimal()).div(FEE_DENOMINATOR)
+  }
+
   // global updates
   factory.txCount = factory.txCount.plus(ONE_BI)
   factory.totalVolumeMatic = factory.totalVolumeMatic.plus(amountTotalMaticTracked)
@@ -579,6 +592,9 @@ export function handleSwap(event: SwapEvent): void {
   token1HourData.volumeUSD = token1HourData.volumeUSD.plus(amountTotalUSDTracked)
   token1HourData.untrackedVolumeUSD = token1HourData.untrackedVolumeUSD.plus(amountTotalUSDTracked)
   token1HourData.feesUSD = token1HourData.feesUSD.plus(feesUSD)
+
+  // Distribute fees to LPs
+  distributeFeesToLPs(pool, feesUSD, feesToken0, feesToken1, event)
 
   swap.save()
   token0DayData.save()

@@ -725,3 +725,37 @@ type FeeHourData @entity {
   #
   endFee: BigInt! 
 }
+
+type UserFeeHourData @entity {
+  # ${user}-${pool}-${hourTimestamp}
+  id: ID!
+  # user address
+  user: Bytes!
+  # start of the hour
+  hourStartUnix: Int!
+  # pool entity
+  pool: Pool!
+  # fees in USD
+  feesUSD: BigDecimal!
+  # fees in token0
+  feesToken0: BigDecimal!
+  # fees in token1
+  feesToken1: BigDecimal!
+  # user's share of pool liquidity
+  liquidityShare: BigDecimal!
+}
+
+type PoolPositionIndex @entity {
+  id: ID!
+  pool: Pool!
+  positionIds: [String!]!
+}
+
+type PoolFeeAccruedHourData @entity {
+  id: ID!
+  pool: Pool!
+  hourStartUnix: Int!
+  feesToken0: BigDecimal!
+  feesToken1: BigDecimal!
+  feesUSD: BigDecimal!
+}

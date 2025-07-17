@@ -6,7 +6,7 @@ import {
   NonfungiblePositionManager,
   Transfer
 } from '../types/NonfungiblePositionManager/NonfungiblePositionManager'
-import { Position, PositionSnapshot, Token} from '../types/schema'
+import { Position, PositionSnapshot, Token, PoolPositionIndex} from '../types/schema'
 import { ADDRESS_ZERO, factoryContract, ZERO_BD, ZERO_BI, pools_list} from '../utils/constants'
 import { Address, BigInt, ethereum } from '@graphprotocol/graph-ts'
 import { convertTokenToDecimal, loadTransaction } from '../utils'
@@ -145,6 +145,22 @@ export function handleIncreaseLiquidity(event: IncreaseLiquidity): void {
   
   position.save()
 
+  // Add position to pool's position index
+  let poolPositionIndex = PoolPositionIndex.load(position.pool)
+  if (poolPositionIndex == null) {
+    poolPositionIndex = new PoolPositionIndex(position.pool)
+    poolPositionIndex.pool = position.pool
+    poolPositionIndex.positionIds = []
+  }
+
+  // Add position ID if not already present
+  let positionIds = poolPositionIndex.positionIds
+  if (!positionIds.includes(position.id)) {
+    positionIds.push(position.id)
+    poolPositionIndex.positionIds = positionIds
+  }
+  poolPositionIndex.save()
+
   savePositionSnapshot(position, event)
   
 }
@@ -184,6 +200,22 @@ export function handleDecreaseLiquidity(event: DecreaseLiquidity): void {
   // recalculatePosition(position)
 
   position.save()
+
+  // Remove position from pool's position index if liquidity is now zero
+  if (position.liquidity.equals(ZERO_BI)) {
+    let poolPositionIndex = PoolPositionIndex.load(position.pool)
+    if (poolPositionIndex != null) {
+      let positionIds = poolPositionIndex.positionIds
+      let newPositionIds: string[] = []
+      for (let i = 0; i < positionIds.length; i++) {
+        if (positionIds[i] != position.id) {
+          newPositionIds.push(positionIds[i])
+        }
+      }
+      poolPositionIndex.positionIds = newPositionIds
+      poolPositionIndex.save()
+    }
+  }
 
   savePositionSnapshot(position, event)
 }
