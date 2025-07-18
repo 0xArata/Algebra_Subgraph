@@ -746,16 +746,73 @@ type UserFeeHourData @entity {
 }
 
 type PoolPositionIndex @entity {
+  # ${pool}-${positionId}
   id: ID!
+  # pool entity
   pool: Pool!
+  # position ids
   positionIds: [String!]!
 }
 
 type PoolFeeAccruedHourData @entity {
+  # ${pool}-${hourTimestamp}
   id: ID!
+  # pool entity
   pool: Pool!
+  # start of the hour
   hourStartUnix: Int!
+  # fees in token0
   feesToken0: BigDecimal!
+  # fees in token1
   feesToken1: BigDecimal!
+  # fees in USD
   feesUSD: BigDecimal!
 }
+
+type UserVolumeHourData @entity {
+  # ${user}-${hourTimestamp}
+  id: ID!
+  # user address
+  user: Bytes!
+  # start of the hour
+  hourStartUnix: Int!
+  # volume in USD
+  volumeUSD: BigDecimal!
+}
+
+type UserVolumeDayData @entity {
+  # ${user}-${date}
+  id: ID!
+  # user address
+  user: Bytes!
+  # start of the day
+  date: Int!
+  # volume in USD
+  volumeUSD: BigDecimal!
+}
+
+type UserVolumeAllTimeData @entity {
+  # ${user}
+  id: ID!
+  # user address
+  user: Bytes!
+  # volume in USD
+  volumeUSD: BigDecimal!
+  # date of first trade in unix timestamp for start of day
+  firstTradeDate: Int!
+  # date of last trade in unix timestamp for start of day
+  lastTradeDate: Int!
+  # top day volume
+  topDayVolumeUSD: BigDecimal!
+  # top day date in unix timestamp for start of day
+  topDayDate: Int!
+  # top hour volume
+  topHourVolumeUSD: BigDecimal!
+  # top hour date in unix timestamp for start of hour
+  topHourDate: Int!
+  # previous day volume - pointer
+  prevDayVolume: UserVolumeDayData
+  # previous hour volume - pointer
+  prevHourVolume: UserVolumeHourData
+}
+

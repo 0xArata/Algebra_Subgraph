@@ -14,7 +14,10 @@ import {
   FeeHourData,
   Tick,
   UserFeeHourData,
-  PoolFeeAccruedHourData
+  PoolFeeAccruedHourData,
+  UserVolumeAllTimeData,
+  UserVolumeDayData,
+  UserVolumeHourData
 } from './../types/schema'
 import { FACTORY_ADDRESS } from './constants'
 import { ethereum, BigInt, BigDecimal, Bytes } from '@graphprotocol/graph-ts'
@@ -296,6 +299,9 @@ export function updateTickDayData(tick: Tick, event: ethereum.Event): TickDayDat
   return tickDayData as TickDayData
 }
 
+
+//* Point system tracking related functions *//
+
 export function updateUserFeeHourData(
   user: Bytes,
   pool: Pool,
@@ -359,3 +365,111 @@ export function updatePoolFeeAccruedHourData(
   poolFeeAccruedHourData.feesUSD = poolFeeAccruedHourData.feesUSD.plus(feesUSD)
   poolFeeAccruedHourData.save()
 }
+
+export function updateUserVolumeAllTimeData(
+  user: Bytes,
+  volumeUSD: BigDecimal,
+  event: ethereum.Event
+): void {
+  let timestamp = event.block.timestamp.toI32()
+  let date = timestamp / 86400 * 86400 // start of the day
+  let userVolumeAllTimeDataID = user.toHexString()
+  let userVolumeAllTimeData = UserVolumeAllTimeData.load(userVolumeAllTimeDataID)
+
+  if(userVolumeAllTimeData === null) {
+    userVolumeAllTimeData = new UserVolumeAllTimeData(userVolumeAllTimeDataID)
+    userVolumeAllTimeData.user = user
+    userVolumeAllTimeData.volumeUSD = ZERO_BD
+    userVolumeAllTimeData.firstTradeDate = date
+    userVolumeAllTimeData.lastTradeDate = date
+    userVolumeAllTimeData.topDayVolumeUSD = ZERO_BD
+    userVolumeAllTimeData.topDayDate = date
+    userVolumeAllTimeData.topHourVolumeUSD = ZERO_BD
+    userVolumeAllTimeData.topHourDate = date
+    userVolumeAllTimeData.prevDayVolume = null
+    userVolumeAllTimeData.prevHourVolume = null
+  }
+
+  userVolumeAllTimeData.volumeUSD = userVolumeAllTimeData.volumeUSD.plus(volumeUSD)
+  
+  if (userVolumeAllTimeData.lastTradeDate < date) {
+    userVolumeAllTimeData.lastTradeDate = date
+  }
+  
+  userVolumeAllTimeData.save()
+}
+
+export function updateStatsOfUserVolumeAllTimeData(
+  user: Bytes,
+  userVolumeDayData: UserVolumeDayData | null = null,
+  userVolumeHourData: UserVolumeHourData | null = null,
+): void {
+  let userVolumeAllTimeDataID = user.toHexString()
+  let userVolumeAllTimeData = UserVolumeAllTimeData.load(userVolumeAllTimeDataID)
+  if(userVolumeAllTimeData === null) return
+
+  if(userVolumeDayData !== null) {
+    userVolumeAllTimeData.prevDayVolume = userVolumeDayData.id
+    if(userVolumeAllTimeData.topDayVolumeUSD < userVolumeDayData.volumeUSD) {
+      userVolumeAllTimeData.topDayVolumeUSD = userVolumeDayData.volumeUSD
+      userVolumeAllTimeData.topDayDate = userVolumeDayData.date
+    }
+  }
+  if(userVolumeHourData !== null) {
+    userVolumeAllTimeData.prevHourVolume = userVolumeHourData.id
+    if(userVolumeAllTimeData.topHourVolumeUSD < userVolumeHourData.volumeUSD) {
+      userVolumeAllTimeData.topHourVolumeUSD = userVolumeHourData.volumeUSD
+      userVolumeAllTimeData.topHourDate = userVolumeHourData.hourStartUnix
+    }
+  }
+  userVolumeAllTimeData.save()
+}
+
+export function updateUserVolumeHourData(
+  user: Bytes,
+  volumeUSD: BigDecimal,
+  event: ethereum.Event
+): void {
+  let timestamp = event.block.timestamp.toI32()
+  let hourIndex = timestamp / 3600
+  let hourStartUnix = hourIndex * 3600
+  let userVolumeHourDataID = user.toHexString()
+    .concat('-')
+    .concat(hourStartUnix.toString())
+  let userVolumeHourData = UserVolumeHourData.load(userVolumeHourDataID)
+  if(userVolumeHourData === null) {
+    userVolumeHourData = new UserVolumeHourData(userVolumeHourDataID)
+    userVolumeHourData.user = user
+    userVolumeHourData.hourStartUnix = hourStartUnix
+    userVolumeHourData.volumeUSD = ZERO_BD
+  }
+  userVolumeHourData.volumeUSD = userVolumeHourData.volumeUSD.plus(volumeUSD)
+  userVolumeHourData.save()
+  updateStatsOfUserVolumeAllTimeData(user, null, userVolumeHourData)
+}
+
+export function updateUserVolumeDayData(
+  user: Bytes,
+  volumeUSD: BigDecimal,
+  event: ethereum.Event
+): void {
+  let timestamp = event.block.timestamp.toI32()
+  // days since unix epoch
+  let date = timestamp / 86400
+  // start of the day
+  let dayStartUnix = date * 86400
+  let userVolumeDayDataID = user.toHexString()
+    .concat('-')
+    .concat(date.toString())
+  let userVolumeDayData = UserVolumeDayData.load(userVolumeDayDataID)
+  if(userVolumeDayData === null) {
+    userVolumeDayData = new UserVolumeDayData(userVolumeDayDataID)
+    userVolumeDayData.user = user
+    userVolumeDayData.date = dayStartUnix
+    userVolumeDayData.volumeUSD = ZERO_BD
+  }
+  userVolumeDayData.volumeUSD = userVolumeDayData.volumeUSD.plus(volumeUSD)
+  userVolumeDayData.save()
+  updateStatsOfUserVolumeAllTimeData(user, userVolumeDayData, null)
+}
+

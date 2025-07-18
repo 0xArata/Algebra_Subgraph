@@ -25,7 +25,10 @@ import {
   updateTokenDayData,
   updateTokenHourData,
   updateAlgebraDayData,
-  updateFeeHourData
+  updateFeeHourData,
+  updateUserVolumeHourData,
+  updateUserVolumeDayData,
+  updateUserVolumeAllTimeData
 } from '../utils/intervalUpdates'
 import { createTick } from '../utils/tick'
 
@@ -593,9 +596,7 @@ export function handleSwap(event: SwapEvent): void {
   token1HourData.untrackedVolumeUSD = token1HourData.untrackedVolumeUSD.plus(amountTotalUSDTracked)
   token1HourData.feesUSD = token1HourData.feesUSD.plus(feesUSD)
 
-  // Distribute fees to LPs
-  distributeFeesToLPs(pool, feesUSD, feesToken0, feesToken1, event)
-
+  
   swap.save()
   token0DayData.save()
   token1DayData.save()
@@ -606,6 +607,16 @@ export function handleSwap(event: SwapEvent): void {
   pool.save()
   token0.save()
   token1.save()
+  
+  //* Point system tracking related functions *//
+  // Distribute fees to LPs
+  distributeFeesToLPs(pool, feesUSD, feesToken0, feesToken1, event)
+  
+  // Update user volume metrics
+  // We are tracking based on amount of USD tracked
+  updateUserVolumeAllTimeData(event.params.sender, amountTotalUSDTracked, event)
+  updateUserVolumeDayData(event.params.sender, amountTotalUSDTracked, event)
+  updateUserVolumeHourData(event.params.sender, amountTotalUSDTracked, event)
   
   // Update inner vars of current or crossed ticks
   let newTick = pool.tick
