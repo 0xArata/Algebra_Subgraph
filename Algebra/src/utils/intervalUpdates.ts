@@ -348,7 +348,6 @@ export function updatePoolFeeAccruedHourData(
   let hourIndex = timestamp / 3600
   let hourStartUnix = hourIndex * 3600
   let poolFeeAccruedHourDataID = pool.id
-    .toString()
     .concat('-')
     .concat(hourStartUnix.toString())
   let poolFeeAccruedHourData = PoolFeeAccruedHourData.load(poolFeeAccruedHourDataID)

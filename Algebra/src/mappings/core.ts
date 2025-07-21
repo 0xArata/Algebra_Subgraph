@@ -614,9 +614,9 @@ export function handleSwap(event: SwapEvent): void {
   
   // Update user volume metrics
   // We are tracking based on amount of USD tracked
-  updateUserVolumeAllTimeData(event.params.sender, amountTotalUSDTracked, event)
-  updateUserVolumeDayData(event.params.sender, amountTotalUSDTracked, event)
-  updateUserVolumeHourData(event.params.sender, amountTotalUSDTracked, event)
+  updateUserVolumeAllTimeData(event.transaction.from, amountTotalUSDTracked, event)
+  updateUserVolumeDayData(event.transaction.from, amountTotalUSDTracked, event)
+  updateUserVolumeHourData(event.transaction.from, amountTotalUSDTracked, event)
   
   // Update inner vars of current or crossed ticks
   let newTick = pool.tick

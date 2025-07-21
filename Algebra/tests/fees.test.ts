@@ -1,7 +1,7 @@
-import { test, assert, newMockEvent, log, logStore } from 'matchstick-as'
+import { test, assert, newMockEvent, log, logStore, clearStore, beforeEach, describe } from 'matchstick-as'
 import { distributeFeesToLPs } from '../src/utils/fees'
 import { Pool, PoolFeeAccruedHourData, PoolPositionIndex, Position, UserFeeHourData } from '../src/types/schema'
-import { Address, BigDecimal, Bytes, ethereum, Value } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, Bytes, ethereum, store, Value } from '@graphprotocol/graph-ts'
 import { Swap } from '../src/types/templates/Pool/Pool'
 import { BigInt } from '@graphprotocol/graph-ts'
 import { Token } from '../src/types/schema'
@@ -18,8 +18,8 @@ export function createSwapEvent(
     tick: BigInt,
 ) : Swap {
     const mockEvent = newMockEvent()
-    log.info("mockEvent.block: {}", [mockEvent.block.author.toHexString()])
-    log.info("mockEvent.block.timestamp: {}", [mockEvent.block.timestamp.toString()])
+    // log.info("mockEvent.block: {}", [mockEvent.block.author.toHexString()])
+    // log.info("mockEvent.block.timestamp: {}", [mockEvent.block.timestamp.toString()])
     const swapEvent = new Swap(
         mockEvent.address,
         mockEvent.logIndex,
@@ -31,7 +31,7 @@ export function createSwapEvent(
         mockEvent.receipt,
     )
     mockEvent.block.timestamp = BigInt.fromI64(1752571650)
-    log.info("mockEvent.block.timestamp: {}", [mockEvent.block.timestamp.toString()])
+    // log.info("mockEvent.block.timestamp: {}", [mockEvent.block.timestamp.toString()])
     swapEvent.parameters = [
         new ethereum.EventParam("sender", ethereum.Value.fromAddress(sender)),
         new ethereum.EventParam("recipient", ethereum.Value.fromAddress(recipient)),
@@ -163,6 +163,10 @@ function createMockTransaction(): Transaction {
   transaction.save()
   return transaction;
 }
+describe("distributeFeesToLPs", () => {
+  beforeEach(() => {
+    clearStore()
+  })
 
 test("distributeFeesToLPs distributes fees correctly same liquidity share", () => {
   const token0 = createMockToken0();
@@ -258,25 +262,41 @@ test("distributeFeesToLPs distributes fees correctly same liquidity share", () =
     )
 
     const hour = event.block.timestamp.toI32() / 3600
-    log.info("event.block.timestamp: {}", [event.block.timestamp.toString()])
-    log.info("hour: {}", [hour.toString()])
+    // log.info("event.block.timestamp: {}", [event.block.timestamp.toString()])
+    // log.info("hour: {}", [hour.toString()])
     const hourStartUnix = hour * 3600
-    log.info("hourStartUnix: {}", [hourStartUnix.toString()])
-    const userFeeHourDataID1 = user1.toHexString().concat('-').concat(hourStartUnix.toString())
-    const userFeeHourDataID2 = user2.toHexString().concat('-').concat(hourStartUnix.toString())
+    // log.info("hourStartUnix: {}", [hourStartUnix.toString()])
+    const userFeeHourDataID1 = user1.toHexString().concat('-').concat(pool.id).concat('-').concat(hourStartUnix.toString())
+    const userFeeHourDataID2 = user2.toHexString().concat('-').concat(pool.id).concat('-').concat(hourStartUnix.toString())
     const userFeeHourData1 = UserFeeHourData.load(userFeeHourDataID1)
     const userFeeHourData2 = UserFeeHourData.load(userFeeHourDataID2)
     logStore() 
+    
     const poolFeeAccruedHourDataID = pool.id.toString().concat('-').concat(hourStartUnix.toString())
     const poolFeeAccruedHourData = PoolFeeAccruedHourData.load(poolFeeAccruedHourDataID)
+    
     assert.entityCount("PoolFeeAccruedHourData", 1)
+    
     log.info("poolFeeAccruedHourDataID: {}", [poolFeeAccruedHourDataID])
     log.info("poolFeeAccruedHourData: {}", [poolFeeAccruedHourData!.id])
+   
+    const loadedEntity = PoolFeeAccruedHourData.load(poolFeeAccruedHourDataID)
+    log.info("Loaded via .load: {}", [loadedEntity == null ? "null" : "exists"])
+    const storeEntity = store.get('PoolFeeAccruedHourData', poolFeeAccruedHourDataID)
+    log.info("Loaded via store.get: {}", [storeEntity == null ? "null" : "exists"])
+   
     assert.assertNotNull(poolFeeAccruedHourData)
     assert.stringEquals(poolFeeAccruedHourData!.feesUSD.toString(), "10")
     assert.stringEquals(poolFeeAccruedHourData!.feesToken0.toString(), "1")
     assert.stringEquals(poolFeeAccruedHourData!.feesToken1.toString(), "0.99")
+    
     assert.entityCount("UserFeeHourData", 2)
+    
+    log.info("userFeeHourData1: {}", [userFeeHourDataID1])
+    log.info("userFeeHourData2: {}", [userFeeHourDataID2])
+    log.info("userFeeHourData1: {}", [userFeeHourData1!.id])
+    log.info("userFeeHourData2: {}", [userFeeHourData2!.id])
+
 
     assert.assertNotNull(userFeeHourData1)
     assert.stringEquals(userFeeHourData1!.feesUSD.toString(), "5")
@@ -285,3 +305,4 @@ test("distributeFeesToLPs distributes fees correctly same liquidity share", () =
     assert.stringEquals(userFeeHourData2!.feesUSD.toString(), "5")
 
   })
+})
