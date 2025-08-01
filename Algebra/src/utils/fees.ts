@@ -1,6 +1,6 @@
 import { Pool, PoolPosition, PoolPositionIndex, Position } from '../types/schema'
 import { BigDecimal, ethereum } from '@graphprotocol/graph-ts'
-import { ZERO_BI } from './constants'
+import { ZERO_BD, ZERO_BI } from './constants'
 import { updatePoolFeeAccruedHourData, updateUserFeeHourData } from './intervalUpdates'
 
 export function distributeFeesToLPs(
@@ -31,10 +31,10 @@ export function distributeFeesToLPs(
   for (let i = 0; i < positionIds.length; i++) {
     const position = Position.load(positionIds[i])
     if (position != null && position.liquidity.gt(ZERO_BI)) {
-      const liquidityShare = position.liquidity.toBigDecimal().div(totalLiquidity.toBigDecimal())
-      const userFeesUSD = totalFeesUSD.times(liquidityShare)
-      const userFeesToken0 = totalFeesToken0.times(liquidityShare)
-      const userFeesToken1 = totalFeesToken1.times(liquidityShare)
+      const liquidityShare = totalLiquidity.gt(ZERO_BI) ? position.liquidity.toBigDecimal().div(totalLiquidity.toBigDecimal()) : ZERO_BD
+      const userFeesUSD = liquidityShare.gt(ZERO_BD) ? totalFeesUSD.times(liquidityShare) : ZERO_BD
+      const userFeesToken0 = liquidityShare.gt(ZERO_BD) ? totalFeesToken0.times(liquidityShare) : ZERO_BD
+      const userFeesToken1 = liquidityShare.gt(ZERO_BD) ? totalFeesToken1.times(liquidityShare) : ZERO_BD
       // Update user fee hour data
       updateUserFeeHourData(
         position.owner,

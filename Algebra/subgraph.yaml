@@ -112,3 +112,5 @@ templates:
           handler: handlePlugin
         - event: PluginConfig(uint8)
           handler: handlePluginConfig
+features:
+  - grafting
